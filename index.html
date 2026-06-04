@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>濟州島旅遊行程助手 🇰🇷</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.js"></script>
+  
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
+
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800">
+
+  <div id="app" class="max-w-md mx-auto bg-white min-h-screen shadow-xl flex flex-col pb-20">
+    
+    <header class="bg-white sticky top-0 z-50 shadow-xs border-b border-gray-100">
+      <div class="flex justify-around p-2 text-xs font-bold text-gray-500">
+        <button @click="currentTab = 'itinerary'" :class="{'text-teal-600 border-b-2 border-teal-600': currentTab === 'itinerary'}" class="py-2 px-1">行程景點</button>
+        <button @click="currentTab = 'luggage'" :class="{'text-amber-600 border-b-2 border-amber-600': currentTab === 'luggage'}" class="py-2 px-1">行李清單</button>
+      </div>
+    </header>
+
+    <main class="flex-1 p-4">
+      
+      <div v-if="currentTab === 'itinerary'" class="space-y-4 animate-fadeIn">
+        <div v-for="(item, idx) in itinerary" :key="item.id" class="relative pl-6 border-l-2 border-teal-200/60 ml-4 pb-4">
+          
+          <div class="absolute -left-[7px] top-1.5 w-3 h-3 bg-teal-500 rounded-full ring-4 ring-white"></div>
+          
+          <div class="bg-white border border-gray-100 rounded-2xl p-3 shadow-2xs">
+            <h4 class="font-bold text-sm text-gray-800">{{ item.name }}</h4>
+            <p class="text-[11px] text-gray-400 mt-0.5"><i class="fa-solid fa-location-dot mr-1"></i>{{ item.address || '未填寫地址' }}</p>
+          </div>
+
+          <div v-if="idx > 0" class="my-2 flex items-center gap-2 text-xs font-semibold text-teal-600 bg-teal-50 w-max px-3 py-1 rounded-full border border-teal-100 shadow-2xs">
+            
+            <span @click="cycleTransMode(item)" class="cursor-pointer select-none flex items-center gap-1">
+              <template v-if="item.currentMode === 'DRIVING'">
+                <i class="fa-solid fa-car"></i> 開車
+              </template>
+              <template v-else-if="item.currentMode === 'WALKING'">
+                <i class="fa-solid fa-walking"></i> 走路
+              </template>
+              <template v-else>
+                <i class="fa-solid fa-bus"></i> 大眾運輸
+              </template>
+              
+              <span class="text-teal-700 font-bold ml-0.5">
+                {{ getDurationText(item) }}
+              </span>
+            </span>
+
+            <button @click.stop="calculateSingleRoute(idx)" class="text-teal-400 hover:text-teal-600 ml-1 flex items-center" title="重新計算此段時間">
+              <i class="fa-solid fa-rotate text-[10px]"></i>
+            </button>
+
+            <a :href="'https://map.naver.com/v5/search/' + encodeURIComponent((itinerary[idx-1].address || itinerary[idx-1].name) + ' 到 ' + (item.address || item.name))" 
+               target="_blank" 
+               @click.stop
+               class="text-teal-500 hover:text-teal-700 ml-1 pl-1 border-l border-teal-200" 
+               title="打開 Naver Map 導航">
+              <i class="fa-solid fa-location-arrow text-[10px]"></i>
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+      <div v-if="currentTab === 'luggage'" class="space-y-4 animate-fadeIn">
+        
+        <div class="bg-gradient-to-br from-slate-800 to-slate-900 text-slate-200 rounded-2xl p-4 shadow-md space-y-2">
+          <h3 class="font-bold text-amber-400 text-sm flex items-center gap-2 border-b border-slate-700 pb-1.5">
+            <i class="fa-solid fa-passport"></i> 🇰🇷 韓國最新入境與旅遊規範提醒
+          </h3>
+          <ul class="text-[11px] space-y-1 text-slate-300 list-disc list-inside">
+            <li><strong>K-ETA / 簽證：</strong>請確認台灣免簽入境或已申請 K-ETA 許可。</li>
+            <li><strong>檢疫申報：</strong>請於登機前填寫 Q-CODE 行動條碼加速入境。</li>
+            <li><strong>海關禁帶：</strong>嚴禁攜帶肉製品（泡麵有肉塊亦不可）、新鮮蔬果入境。</li>
+            <li><strong>網卡與地圖：</strong>韓國必備 Naver Map 或 KakaoMap，Google Map 僅供參考。</li>
+          </ul>
+        </div>
+
+        <div class="bg-amber-50/40 border-2 border-amber-200/60 rounded-3xl p-4 shadow-sm space-y-4 relative">
+          <div class="absolute -top-3 left-4 bg-amber-200 text-amber-800 font-extrabold text-xs px-3 py-0.5 rounded-full shadow-xs">🧳 行前打包工具盒</div>
+          
+          <div v-for="cat in ['隨身背包', '手提行李', '托運行李']" :key="cat" class="space-y-2 pt-2">
+            <div class="flex justify-between items-center border-b border-amber-200 pb-1">
+              <span class="font-black text-sm text-amber-900"><i class="fa-solid fa-check-double text-amber-500 mr-1"></i>{{ cat }}</span>
+              <button @click="promptAddLuggage(cat)" class="text-[11px] bg-amber-200/60 text-amber-800 font-bold px-2 py-0.5 rounded-lg hover:bg-amber-200"><i class="fa-solid fa-plus"></i> 加項目</button>
+            </div>
+            
+            <div class="grid grid-cols-1 gap-1.5">
+              <div v-for="(lug, lIdx) in filteredLuggage(cat)" :key="lug.id" class="flex items-center justify-between bg-white px-3 py-2 rounded-xl text-xs shadow-2xs border border-amber-100">
+                <div class="flex items-center gap-2">
+                  <input type="checkbox" v-model="lug.checked" @change="saveLocal()" class="rounded text-amber-500 focus:ring-0 w-4 h-4">
+                  <span :class="{'line-through text-gray-400 font-normal': lug.checked, 'font-bold text-gray-700': !lug.checked}">{{ lug.name }}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-lg px-1">
+                    <button @click="if(lug.qty > 1) { lug.qty--; saveLocal(); }" class="text-gray-400 font-bold px-1 text-sm">-</button>
+                    <span class="font-bold text-gray-600 min-w-[12px] text-center">{{ lug.qty }}</span>
+                    <button @click="lug.qty++; saveLocal();" class="text-gray-400 font-bold px-1 text-sm">+</button>
+                  </div>
+                  <button @click="deleteLuggageItem(lug.id)" class="text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash-can text-[11px]"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        currentTab: 'itinerary',
+        itinerary: [],
+        luggage: []
+      },
+      created() {
+        this.loadLocal();
+      },
+      mounted() {
+        this.$nextTick(() => {
+          this.calculateAllRoutes();
+        });
+      },
+      methods: {
+        // --- 本地儲存資料管理 ---
+        saveLocal() {
+          localStorage.setItem('jeju_itinerary', JSON.stringify(this.itinerary));
+          localStorage.setItem('jeju_luggage', JSON.stringify(this.luggage));
+        },
+        loadLocal() {
+          const localItinerary = localStorage.getItem('jeju_itinerary');
+          const localLuggage = localStorage.getItem('jeju_luggage');
+
+          if (localItinerary) {
+            this.itinerary = JSON.parse(localItinerary);
+          } else {
+            this.itinerary = [
+              { id: 1, name: '濟州國際機場', address: '제주 제주시 공항로 2' },
+              { id: 2, name: '涯月邑海邊咖啡街', address: '제주 제주시 애월읍 애월로 11', transTime: '', currentMode: 'TRANSIT', durationMatrix: null },
+              { id: 3, name: '東門傳統市場', address: '제주 제주시 관덕로14길 20', transTime: '', currentMode: 'TRANSIT', durationMatrix: null }
+            ];
+          }
+
+          if (localLuggage) {
+            this.luggage = JSON.parse(localLuggage);
+          } else {
+            this.luggage = [
+              { id: 1, category: '隨身背包', name: '護照與錢包', qty: 1, checked: false },
+              { id: 2, category: '托運行李', name: '換洗衣服', qty: 4, checked: false }
+            ];
+          }
+        },
+
+        // --- 行李相關 Methods ---
+        filteredLuggage(cat) {
+          return this.luggage.filter(l => l.category === cat);
+        },
+        promptAddLuggage(cat) {
+          const name = prompt(`請輸入要加入【${cat}】的項目名稱：`);
+          if (name && name.trim()) {
+            this.luggage.push({
+              id: Date.now(),
+              category: cat,
+              name: name.trim(),
+              qty: 1,
+              checked: false
+            });
+            this.saveLocal();
+          }
+        },
+        deleteLuggageItem(id) {
+          this.luggage = this.luggage.filter(l => l.id !== id);
+          this.saveLocal();
+        },
+
+        // --- 核心：交通時間自動計算與切換 Methods ---
+        cycleTransMode(item) {
+          const modes = ['TRANSIT', 'DRIVING', 'WALKING'];
+          let nextIdx = modes.indexOf(item.currentMode || 'TRANSIT') + 1;
+          if (nextIdx >= modes.length) nextIdx = 0;
+          
+          item.currentMode = modes[nextIdx];
+          this.saveLocal();
+        },
+        getDurationText(item) {
+          if (!item.durationMatrix) {
+            return '點擊計算';
+          }
+          const mode = item.currentMode || 'TRANSIT';
+          return item.durationMatrix[mode] || '無資料 (請點右側重試)';
+        },
+        calculateSingleRoute(idx) {
+          if (idx === 0 || typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) {
+            alert("Google Maps API 尚未載入完成，或金鑰未更換！");
+            return;
+          }
+
+          const origin = this.itinerary[idx - 1].address || this.itinerary[idx - 1].name;
+          const destination = this.itinerary[idx].address || this.itinerary[idx].name;
+          const item = this
